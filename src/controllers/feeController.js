@@ -19,7 +19,6 @@ const createFeeLedger = async (req, res) => {
       [student_id, academic_year, semester_number, total_fee]
     );
 
-    // Create wallet for student if it doesn't exist
     await pool.query(
       `INSERT INTO student_wallet (student_id) VALUES ($1) ON CONFLICT (student_id) DO NOTHING`,
       [student_id]
@@ -40,14 +39,38 @@ const makePayment = async (req, res) => {
   try {
     const { student_id, amount, type, reference_number, semester_number, academic_year } = req.body;
 
-    // Record transaction
+    const ledgerResult = await pool.query(
+      'SELECT * FROM fee_ledger WHERE student_id = $1 AND semester_number = $2 AND academic_year = $3',
+      [student_id, semester_number, academic_year]
+    );
+
+    if (ledgerResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Fee ledger not found' });
+    }
+
+    const ledger = ledgerResult.rows[0];
+    const balanceDue = ledger.total_fee - ledger.amount_paid;
+    let excessAmount = 0;
+    let amountToApply = amount;
+
+    if (type === 'loan' && amount > balanceDue) {
+      excessAmount = amount - balanceDue;
+      amountToApply = balanceDue;
+
+      await pool.query(
+        `INSERT INTO student_wallet (student_id, balance) VALUES ($1, $2)
+         ON CONFLICT (student_id) DO UPDATE SET balance = student_wallet.balance + $2,
+         last_updated = NOW()`,
+        [student_id, excessAmount]
+      );
+    }
+
     const transaction = await pool.query(
       `INSERT INTO transactions (student_id, amount, type, reference_number)
        VALUES ($1, $2, $3, $4) RETURNING *`,
       [student_id, amount, type, reference_number]
     );
 
-    // Update fee ledger
     const updatedLedger = await pool.query(
       `UPDATE fee_ledger 
        SET amount_paid = amount_paid + $1,
@@ -58,17 +81,12 @@ const makePayment = async (req, res) => {
            END
        WHERE student_id = $2 AND semester_number = $3 AND academic_year = $4
        RETURNING *`,
-      [amount, student_id, semester_number, academic_year]
+      [amountToApply, student_id, semester_number, academic_year]
     );
 
-    if (updatedLedger.rows.length === 0) {
-      return res.status(404).json({ message: 'Fee ledger not found' });
-    }
+    const updatedLedgerData = updatedLedger.rows[0];
 
-    const ledger = updatedLedger.rows[0];
-
-    // If fee is fully paid - check if admit card should be generated
-    if (ledger.status === 'paid') {
+    if (updatedLedgerData.status === 'paid') {
       const existingAdmitCard = await pool.query(
         'SELECT * FROM admit_cards WHERE student_id = $1 AND semester_number = $2 AND academic_year = $3',
         [student_id, semester_number, academic_year]
@@ -92,7 +110,8 @@ const makePayment = async (req, res) => {
     res.json({
       message: 'Payment recorded successfully',
       transaction: transaction.rows[0],
-      feeLedger: ledger
+      feeLedger: updatedLedgerData,
+      excessAddedToWallet: excessAmount > 0 ? excessAmount : null
     });
 
   } catch (err) {
