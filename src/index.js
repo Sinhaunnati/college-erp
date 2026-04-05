@@ -6,6 +6,7 @@ dotenv.config();
 require('./config/db');
 
 const authRoutes = require('./routes/authRoutes');
+const { verifyToken, verifyRole } = require('./middleware/authMiddleware');
 
 const app = express();
 
@@ -15,6 +16,10 @@ app.use('/api/auth', authRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'College ERP API is running' });
+});
+
+app.get('/api/protected', verifyToken, (req, res) => {
+  res.json({ message: `Hello ${req.user.role}, your id is ${req.user.id}` });
 });
 
 const PORT = process.env.PORT || 5000;
