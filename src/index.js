@@ -6,6 +6,7 @@ dotenv.config();
 require('./config/db');
 
 const authRoutes = require('./routes/authRoutes');
+const studentRoutes = require('./routes/studentRoutes');
 const { verifyToken, verifyRole } = require('./middleware/authMiddleware');
 
 const app = express();
@@ -13,6 +14,7 @@ const app = express();
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
+app.use('/api/students', studentRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'College ERP API is running' });
