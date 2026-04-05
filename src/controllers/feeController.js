@@ -145,4 +145,82 @@ const getFeeStatus = async (req, res) => {
   }
 };
 
-module.exports = { createFeeLedger, makePayment, getFeeStatus };
+const applyWalletToFee = async (req, res) => {
+  try {
+    const { student_id, semester_number, academic_year } = req.body;
+
+    const wallet = await pool.query(
+      'SELECT * FROM student_wallet WHERE student_id = $1',
+      [student_id]
+    );
+
+    if (!wallet.rows[0] || wallet.rows[0].balance <= 0) {
+      return res.status(400).json({ message: 'No wallet balance available' });
+    }
+
+    const ledger = await pool.query(
+      'SELECT * FROM fee_ledger WHERE student_id = $1 AND semester_number = $2 AND academic_year = $3',
+      [student_id, semester_number, academic_year]
+    );
+
+    if (ledger.rows.length === 0) {
+      return res.status(404).json({ message: 'Fee ledger not found' });
+    }
+
+    const balanceDue = ledger.rows[0].total_fee - ledger.rows[0].amount_paid;
+
+    if (balanceDue <= 0) {
+      return res.status(400).json({ message: 'Fee already fully paid' });
+    }
+
+    const walletBalance = parseFloat(wallet.rows[0].balance);
+    const amountToApply = Math.min(walletBalance, balanceDue);
+
+    await pool.query(
+      `UPDATE student_wallet SET balance = balance - $1, last_updated = NOW()
+       WHERE student_id = $2`,
+      [amountToApply, student_id]
+    );
+
+    const updatedLedger = await pool.query(
+      `UPDATE fee_ledger
+       SET amount_paid = amount_paid + $1,
+           status = CASE
+             WHEN amount_paid + $1 >= total_fee THEN 'paid'
+             WHEN amount_paid + $1 > 0 THEN 'partial'
+             ELSE 'unpaid'
+           END
+       WHERE student_id = $2 AND semester_number = $3 AND academic_year = $4
+       RETURNING *`,
+      [amountToApply, student_id, semester_number, academic_year]
+    );
+
+    await pool.query(
+      `INSERT INTO transactions (student_id, amount, type, reference_number)
+       VALUES ($1, $2, 'wallet_transfer', 'WALLET-APPLY')`,
+      [student_id, amountToApply]
+    );
+
+    if (updatedLedger.rows[0].status === 'paid') {
+      await pool.query(
+        `INSERT INTO admit_cards (student_id, semester_number, academic_year, fee_cleared, status)
+         VALUES ($1, $2, $3, true, 'generated')
+         ON CONFLICT DO NOTHING`,
+        [student_id, semester_number, academic_year]
+      );
+    }
+
+    res.json({
+      message: 'Wallet balance applied successfully',
+      amountApplied: amountToApply,
+      feeLedger: updatedLedger.rows[0],
+      remainingWalletBalance: walletBalance - amountToApply
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+module.exports = { createFeeLedger, makePayment, getFeeStatus, applyWalletToFee };
