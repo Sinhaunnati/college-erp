@@ -87,3 +87,39 @@ CREATE TABLE IF NOT EXISTS exceptions (
   created_at TIMESTAMP DEFAULT NOW(),
   reviewed_at TIMESTAMP
 );
+-- Programs table
+CREATE TABLE IF NOT EXISTS programs (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  total_semesters INTEGER NOT NULL,
+  degree_type VARCHAR(50)
+);
+
+-- Courses table
+CREATE TABLE IF NOT EXISTS courses (
+  id SERIAL PRIMARY KEY,
+  code VARCHAR(20) UNIQUE NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  credits INTEGER NOT NULL,
+  program_id INTEGER REFERENCES programs(id),
+  semester_number INTEGER NOT NULL
+);
+
+-- Enrollments table
+CREATE TABLE IF NOT EXISTS enrollments (
+  id SERIAL PRIMARY KEY,
+  student_id INTEGER REFERENCES students(id),
+  course_id INTEGER REFERENCES courses(id),
+  semester_number INTEGER NOT NULL,
+  academic_year VARCHAR(10) NOT NULL,
+  status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'completed', 'failed', 'dropped'))
+);
+
+-- Attendance table
+CREATE TABLE IF NOT EXISTS attendance (
+  id SERIAL PRIMARY KEY,
+  enrollment_id INTEGER REFERENCES enrollments(id),
+  date DATE NOT NULL,
+  status VARCHAR(10) NOT NULL CHECK (status IN ('present', 'absent', 'late')),
+  marked_by INTEGER REFERENCES faculty(id)
+);
