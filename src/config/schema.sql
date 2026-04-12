@@ -123,3 +123,13 @@ CREATE TABLE IF NOT EXISTS attendance (
   status VARCHAR(10) NOT NULL CHECK (status IN ('present', 'absent', 'late')),
   marked_by INTEGER REFERENCES faculty(id)
 );
+
+-- Course faculty mapping table
+CREATE TABLE IF NOT EXISTS course_faculty (
+  id SERIAL PRIMARY KEY,
+  course_id INTEGER REFERENCES courses(id),
+  faculty_id INTEGER REFERENCES faculty(id),
+  section VARCHAR(10),
+  semester_number INTEGER,
+  academic_year VARCHAR(10)
+);
