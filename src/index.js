@@ -93,3 +93,8 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+const marksRoutes = require('./routes/marksRoutes');
+const resultsRoutes = require('./routes/resultsRoutes');
+
+app.use('/api/marks', marksRoutes);
+app.use('/api/results', resultsRoutes);

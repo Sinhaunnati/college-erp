@@ -133,3 +133,29 @@ CREATE TABLE IF NOT EXISTS course_faculty (
   semester_number INTEGER,
   academic_year VARCHAR(10)
 );
+
+-- Marks table
+CREATE TABLE IF NOT EXISTS marks (
+  id SERIAL PRIMARY KEY,
+  enrollment_id INTEGER REFERENCES enrollments(id),
+  exam_type VARCHAR(20) CHECK (exam_type IN ('midterm', 'endsem', 'internal', 'assignment')),
+  marks_obtained DECIMAL(5,2),
+  max_marks DECIMAL(5,2),
+  percentage DECIMAL(5,2),
+  grade VARCHAR(2),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Results table
+CREATE TABLE IF NOT EXISTS results (
+  id SERIAL PRIMARY KEY,
+  student_id INTEGER REFERENCES students(id),
+  semester_number INTEGER,
+  academic_year VARCHAR(10),
+  total_marks DECIMAL(8,2),
+  total_max_marks DECIMAL(8,2),
+  percentage DECIMAL(5,2),
+  cgpa DECIMAL(3,2),
+  status VARCHAR(20) CHECK (status IN ('pass', 'fail', 'pending')),
+  created_at TIMESTAMP DEFAULT NOW()
+);

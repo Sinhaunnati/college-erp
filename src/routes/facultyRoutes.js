@@ -16,11 +16,27 @@
 
 // module.exports = router;
 
+// const express = require('express');
+// const router = express.Router();
+// const { getFacultyCourses, getCourseStudents } = require('../controllers/facultyController');
+// const { verifyToken, verifyRole } = require('../middleware/authMiddleware');
+
+// router.get('/courses/:faculty_id', verifyToken, getFacultyCourses);
+// router.get('/course/:course_id/students', verifyToken, getCourseStudents);
+
+// module.exports = router;
+
+
 const express = require('express');
 const router = express.Router();
-const { getFacultyCourses, getCourseStudents } = require('../controllers/facultyController');
+const { getFacultyCourses, getCourseStudents, getFacultyProfile } = require('../controllers/facultyController');
 const { verifyToken, verifyRole } = require('../middleware/authMiddleware');
 
+// IMPORTANT: Put specific routes BEFORE parameter routes
+router.get('/test', (req, res) => {
+  res.json({ message: 'Faculty routes are working!' });
+});
+router.get('/profile/:user_id', verifyToken, getFacultyProfile);
 router.get('/courses/:faculty_id', verifyToken, getFacultyCourses);
 router.get('/course/:course_id/students', verifyToken, getCourseStudents);
 

@@ -50,4 +50,20 @@ const getCourseStudents = async (req, res) => {
   }
 };
 
-module.exports = { getFacultyCourses, getCourseStudents };
+const getFacultyProfile = async (req, res) => {
+  try {
+    const { user_id } = req.params;
+    const faculty = await pool.query(
+      'SELECT * FROM faculty WHERE user_id = $1',
+      [user_id]
+    );
+    if (faculty.rows.length === 0) {
+      return res.status(404).json({ message: 'Faculty profile not found' });
+    }
+    res.json({ faculty: faculty.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+module.exports = { getFacultyCourses, getCourseStudents, getFacultyProfile };
