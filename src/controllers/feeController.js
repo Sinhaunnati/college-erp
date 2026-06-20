@@ -1,4 +1,11 @@
 const pool = require('../config/db');
+const { sendEmail } = require('../config/email');
+const { 
+  feePaidTemplate, 
+  attendanceAlertTemplate, 
+  admitCardTemplate, 
+  walletCreditTemplate 
+} = require('../utils/emailTemplates');
 
 const createFeeLedger = async (req, res) => {
   try {
@@ -63,6 +70,19 @@ const makePayment = async (req, res) => {
          last_updated = NOW()`,
         [student_id, excessAmount]
       );
+
+      // Send wallet credit notification
+      const student = await pool.query(
+        'SELECT full_name, email FROM students WHERE id = $1',
+        [student_id]
+      );
+      if (student.rows.length > 0 && student.rows[0].email) {
+        await sendEmail(
+          student.rows[0].email,
+          '💰 Wallet Credit Notification',
+          walletCreditTemplate(student.rows[0].full_name, excessAmount)
+        );
+      }
     }
 
     const transaction = await pool.query(
@@ -103,6 +123,19 @@ const makePayment = async (req, res) => {
           `UPDATE admit_cards SET fee_cleared = true, status = 'generated'
            WHERE student_id = $1 AND semester_number = $2 AND academic_year = $3`,
           [student_id, semester_number, academic_year]
+        );
+      }
+
+      // Send fee paid notification
+      const student = await pool.query(
+        'SELECT full_name, email FROM students WHERE id = $1',
+        [student_id]
+      );
+      if (student.rows.length > 0 && student.rows[0].email) {
+        await sendEmail(
+          student.rows[0].email,
+          '✅ Fee Payment Confirmed - Admit Card Generated',
+          feePaidTemplate(student.rows[0].full_name, semester_number, amountToApply)
         );
       }
     }
