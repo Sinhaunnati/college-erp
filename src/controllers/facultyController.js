@@ -4,29 +4,21 @@ const pool = require('../config/db');
 const getFacultyCourses = async (req, res) => {
   try {
     const { faculty_id } = req.params;
+    console.log('🔍 faculty_id received:', faculty_id);
 
-    // First find faculty profile by user_id
-    const facultyProfile = await pool.query(
-      'SELECT id FROM faculty WHERE user_id = $1',
-      [faculty_id]
-    );
-
-    if (facultyProfile.rows.length === 0) {
-      return res.json({ courses: [] });
-    }
-
-    const actualFacultyId = facultyProfile.rows[0].id;
-
+    // faculty_id is the actual faculty.id (1), not user_id
+    // Direct query using faculty_id
     const courses = await pool.query(`
       SELECT c.*, cf.section
       FROM courses c
       JOIN course_faculty cf ON c.id = cf.course_id
       WHERE cf.faculty_id = $1
-    `, [actualFacultyId]);
-
+    `, [faculty_id]);
+    
+    console.log('📚 Courses found:', courses.rows);
     res.json({ courses: courses.rows });
   } catch (err) {
-    console.error(err);
+    console.error('❌ Error in getFacultyCourses:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -35,6 +27,7 @@ const getFacultyCourses = async (req, res) => {
 const getCourseStudents = async (req, res) => {
   try {
     const { course_id } = req.params;
+    console.log('🔍 getCourseStudents called with course_id:', course_id);
     
     const students = await pool.query(`
       SELECT s.id, s.roll_number, s.full_name, s.email, e.id as enrollment_id
@@ -43,6 +36,7 @@ const getCourseStudents = async (req, res) => {
       WHERE e.course_id = $1 AND e.status = 'active'
     `, [course_id]);
     
+    console.log('👨‍🎓 Students found:', students.rows);
     res.json({ students: students.rows });
   } catch (err) {
     console.error(err);
@@ -50,13 +44,19 @@ const getCourseStudents = async (req, res) => {
   }
 };
 
+// Get faculty profile by user_id
 const getFacultyProfile = async (req, res) => {
   try {
     const { user_id } = req.params;
+    console.log('🔍 getFacultyProfile called with user_id:', user_id);
+    
     const faculty = await pool.query(
       'SELECT * FROM faculty WHERE user_id = $1',
       [user_id]
     );
+    
+    console.log('📋 Faculty profile:', faculty.rows);
+    
     if (faculty.rows.length === 0) {
       return res.status(404).json({ message: 'Faculty profile not found' });
     }
@@ -66,4 +66,5 @@ const getFacultyProfile = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
 module.exports = { getFacultyCourses, getCourseStudents, getFacultyProfile };
